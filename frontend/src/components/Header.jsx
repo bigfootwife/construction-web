@@ -50,6 +50,11 @@ export default function Header() {
         </nav>
 
         <div className="hidden lg:flex items-center gap-4">
+          {user?.role === "admin" && (
+            <Link to="/admin" data-testid="admin-link" className="text-xs font-semibold uppercase tracking-[0.18em] text-primary hover:opacity-70">
+              Admin
+            </Link>
+          )}
           {user ? (
             <Link to="/dashboard" data-testid="dashboard-link" className="btn-outline">
               Dashboard

@@ -5,6 +5,7 @@ load_dotenv(ROOT_DIR / '.env')
 
 import os
 import uuid
+import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
@@ -12,7 +13,8 @@ from typing import Optional, List
 import bcrypt
 import jwt
 import requests
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends
+import resend
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, EmailStr, Field
@@ -26,6 +28,17 @@ ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@stonebridge.com")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Admin@1234")
 TEST_CLIENT_EMAIL = "client@stonebridge.com"
 TEST_CLIENT_PASSWORD = "Client@1234"
+
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
+SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev")
+INQUIRY_NOTIFICATION_EMAIL = os.environ.get("INQUIRY_NOTIFICATION_EMAIL")
+if RESEND_API_KEY:
+    resend.api_key = RESEND_API_KEY
+
+EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
+APP_NAME = os.environ.get("APP_NAME", "stonebridge")
+STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
+storage_key: Optional[str] = None
 
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
@@ -278,6 +291,44 @@ async def google_session(payload: GoogleSessionIn, response: Response):
     return UserOut(user_id=user_id, email=email, name=name, role=role, picture=picture)
 
 # ---------- Inquiries ----------
+def _build_inquiry_email_html(inq: dict) -> str:
+    return f"""
+    <table style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;border:1px solid #E5E2DA;border-collapse:collapse;">
+      <tr><td style="background:#A85A3F;color:#fff;padding:20px;font-size:18px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;">New Inquiry · Stonebridge</td></tr>
+      <tr><td style="padding:24px;">
+        <p style="margin:0 0 16px;color:#1C1C1A;font-size:16px;">A new project inquiry has been received.</p>
+        <table style="width:100%;border-collapse:collapse;font-size:14px;">
+          <tr><td style="padding:8px 0;color:#6E6D69;width:140px;">Name</td><td style="padding:8px 0;color:#1C1C1A;font-weight:600;">{inq.get('name','')}</td></tr>
+          <tr><td style="padding:8px 0;color:#6E6D69;">Email</td><td style="padding:8px 0;color:#1C1C1A;"><a href="mailto:{inq.get('email','')}" style="color:#A85A3F;">{inq.get('email','')}</a></td></tr>
+          <tr><td style="padding:8px 0;color:#6E6D69;">Phone</td><td style="padding:8px 0;color:#1C1C1A;">{inq.get('phone') or '—'}</td></tr>
+          <tr><td style="padding:8px 0;color:#6E6D69;">Project Type</td><td style="padding:8px 0;color:#1C1C1A;">{inq.get('project_type','')}</td></tr>
+          <tr><td style="padding:8px 0;color:#6E6D69;">Budget</td><td style="padding:8px 0;color:#1C1C1A;">{inq.get('budget') or '—'}</td></tr>
+        </table>
+        <hr style="border:none;border-top:1px solid #E5E2DA;margin:20px 0;">
+        <p style="margin:0 0 8px;color:#6E6D69;font-size:12px;text-transform:uppercase;letter-spacing:2px;">Message</p>
+        <p style="margin:0;color:#1C1C1A;font-size:14px;line-height:1.6;white-space:pre-wrap;">{inq.get('message','')}</p>
+      </td></tr>
+      <tr><td style="background:#F5F3EF;color:#6E6D69;padding:14px 24px;font-size:12px;">Sent {inq.get('created_at','')} · Inquiry ID: {inq.get('inquiry_id','')}</td></tr>
+    </table>
+    """
+
+async def _send_inquiry_email(inq: dict) -> None:
+    if not RESEND_API_KEY or not INQUIRY_NOTIFICATION_EMAIL:
+        logger.info("Resend not configured; skipping email")
+        return
+    params = {
+        "from": SENDER_EMAIL,
+        "to": [INQUIRY_NOTIFICATION_EMAIL],
+        "reply_to": inq.get("email"),
+        "subject": f"New Inquiry · {inq.get('name','')} · {inq.get('project_type','')}",
+        "html": _build_inquiry_email_html(inq),
+    }
+    try:
+        result = await asyncio.to_thread(resend.Emails.send, params)
+        logger.info("Inquiry email sent: %s", result.get("id"))
+    except Exception as e:
+        logger.error("Inquiry email send failed: %s", e)
+
 @api.post("/inquiries", response_model=InquiryOut)
 async def create_inquiry(payload: InquiryIn):
     inq_id = f"inq_{uuid.uuid4().hex[:12]}"
@@ -289,6 +340,8 @@ async def create_inquiry(payload: InquiryIn):
     })
     await db.inquiries.insert_one(doc)
     doc.pop("_id", None)
+    # Fire-and-forget email
+    asyncio.create_task(_send_inquiry_email(doc))
     return InquiryOut(**doc)
 
 @api.get("/inquiries", response_model=List[InquiryOut])
@@ -315,6 +368,118 @@ async def create_project(payload: ProjectIn, user: dict = Depends(require_admin)
     await db.projects.insert_one(doc)
     doc.pop("_id", None)
     return ProjectOut(**doc)
+
+@api.delete("/projects/{project_id}")
+async def delete_project(project_id: str, user: dict = Depends(require_admin)):
+    result = await db.projects.delete_one({"project_id": project_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {"ok": True, "deleted": project_id}
+
+# ---------- File Upload (Object Storage) ----------
+MIME_BY_EXT = {
+    "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+    "gif": "image/gif", "webp": "image/webp",
+}
+
+def init_storage() -> Optional[str]:
+    global storage_key
+    if storage_key:
+        return storage_key
+    if not EMERGENT_LLM_KEY:
+        return None
+    try:
+        resp = requests.post(
+            f"{STORAGE_URL}/init",
+            json={"emergent_key": EMERGENT_LLM_KEY},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        storage_key = resp.json()["storage_key"]
+        logger.info("Object storage initialized")
+        return storage_key
+    except Exception as e:
+        logger.error("Storage init failed: %s", e)
+        return None
+
+def storage_put(path: str, data: bytes, content_type: str) -> dict:
+    key = init_storage()
+    if not key:
+        raise HTTPException(status_code=503, detail="Storage unavailable")
+    resp = requests.put(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key, "Content-Type": content_type},
+        data=data, timeout=120,
+    )
+    if resp.status_code == 403:
+        # refresh key once
+        global storage_key
+        storage_key = None
+        key = init_storage()
+        resp = requests.put(
+            f"{STORAGE_URL}/objects/{path}",
+            headers={"X-Storage-Key": key, "Content-Type": content_type},
+            data=data, timeout=120,
+        )
+    resp.raise_for_status()
+    return resp.json()
+
+def storage_get(path: str) -> tuple[bytes, str]:
+    key = init_storage()
+    if not key:
+        raise HTTPException(status_code=503, detail="Storage unavailable")
+    resp = requests.get(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key}, timeout=60,
+    )
+    if resp.status_code == 403:
+        global storage_key
+        storage_key = None
+        key = init_storage()
+        resp = requests.get(
+            f"{STORAGE_URL}/objects/{path}",
+            headers={"X-Storage-Key": key}, timeout=60,
+        )
+    resp.raise_for_status()
+    return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
+
+@api.post("/upload")
+async def upload_file(
+    file: UploadFile = File(...),
+    user: dict = Depends(require_admin),
+):
+    ext = (file.filename or "bin").rsplit(".", 1)[-1].lower()
+    if ext not in MIME_BY_EXT:
+        raise HTTPException(status_code=400, detail="Only image uploads (jpg/png/webp/gif) are accepted")
+    content_type = MIME_BY_EXT[ext]
+    data = await file.read()
+    if len(data) > 8 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large (max 8MB)")
+    file_id = uuid.uuid4().hex
+    path = f"{APP_NAME}/uploads/{user['user_id']}/{file_id}.{ext}"
+    result = await asyncio.to_thread(storage_put, path, data, content_type)
+    canonical_path = result.get("path", path)
+    await db.files.insert_one({
+        "file_id": file_id,
+        "storage_path": canonical_path,
+        "original_filename": file.filename,
+        "content_type": content_type,
+        "size": result.get("size", len(data)),
+        "uploaded_by": user["user_id"],
+        "is_deleted": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    # Public URL the frontend can use directly in <img src>
+    public_url = f"{os.environ.get('FRONTEND_URL','').rstrip('/')}/api/files/{canonical_path}"
+    return {"file_id": file_id, "url": public_url, "path": canonical_path}
+
+@api.get("/files/{path:path}")
+async def serve_file(path: str):
+    record = await db.files.find_one({"storage_path": path, "is_deleted": False}, {"_id": 0})
+    if not record:
+        raise HTTPException(status_code=404, detail="File not found")
+    data, content_type = await asyncio.to_thread(storage_get, path)
+    return Response(content=data, media_type=record.get("content_type") or content_type)
 
 # ---------- Client Projects (Dashboard) ----------
 @api.get("/client/projects", response_model=List[ClientProjectOut])
@@ -446,6 +611,14 @@ async def on_startup():
     await db.inquiries.create_index("inquiry_id", unique=True)
     await db.sessions.create_index("session_token", unique=True)
     await db.client_projects.create_index("cp_id", unique=True)
+    await db.files.create_index("file_id", unique=True)
+    await db.files.create_index("storage_path", unique=True)
+
+    # Initialize object storage (non-fatal)
+    try:
+        await asyncio.to_thread(init_storage)
+    except Exception as e:
+        logger.warning("Storage init at startup failed: %s", e)
 
     # Seed admin
     admin = await db.users.find_one({"email": ADMIN_EMAIL})
