@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { ArrowUpRight, ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import api from "../lib/api";
+import SEO from "../components/SEO";
 
 const stats = [
   { n: "27", label: "Years Building" },
@@ -38,6 +39,11 @@ export default function Home() {
 
   return (
     <div data-testid="home-page">
+      <SEO
+        title="Building, Renovation & Project Management in Denver"
+        description="Stonebridge is a Denver-based construction studio building residential, commercial, and renovation projects with editorial precision since 1998."
+        path="/"
+      />
       {/* HERO */}
       <section className="relative min-h-[92vh] flex items-end overflow-hidden">
         <div className="absolute inset-0">

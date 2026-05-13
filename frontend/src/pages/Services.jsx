@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
+import SEO from "../components/SEO";
 
 const services = [
   {
@@ -55,6 +56,11 @@ const services = [
 export default function Services() {
   return (
     <div data-testid="services-page">
+      <SEO
+        title="Services · Construction, Renovation, Project Management"
+        description="Three disciplines, one studio. Stonebridge delivers ground-up construction, residential renovations, and owner's-representative project management."
+        path="/services"
+      />
       <section className="container-x pt-20 pb-24 lg:pt-32 lg:pb-32 border-b border-border">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-end">
           <div className="lg:col-span-8">

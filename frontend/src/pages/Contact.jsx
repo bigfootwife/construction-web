@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { ArrowRight, Check } from "lucide-react";
 import { motion } from "framer-motion";
 import api from "../lib/api";
+import SEO from "../components/SEO";
 
 const PROJECT_TYPES = ["New Construction", "Residential Renovation", "Commercial Build-out", "Project Management", "Other"];
 const BUDGETS = ["< $250K", "$250K — $1M", "$1M — $5M", "$5M+", "Not sure yet"];
@@ -34,6 +35,11 @@ export default function Contact() {
 
   return (
     <div data-testid="contact-page">
+      <SEO
+        title="Contact · Start a project"
+        description="Tell us about your project — site, brief, timeline, and budget. Most inquiries get a partner response within two business days."
+        path="/contact"
+      />
       <section className="container-x pt-20 pb-16 lg:pt-32 lg:pb-20 border-b border-border">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-end">
           <div className="lg:col-span-8">

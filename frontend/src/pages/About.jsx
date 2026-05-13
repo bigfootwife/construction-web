@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import SEO from "../components/SEO";
 
 const values = [
   { n: "01", title: "Build slowly, well.", body: "We turn down 7 in 10 projects to keep our portfolio small and our team focused." },
@@ -25,6 +26,11 @@ const team = [
 export default function About() {
   return (
     <div data-testid="about-page">
+      <SEO
+        title="About · 48 builders, 27 years"
+        description="Founded in 1998, Stonebridge is a 48-person construction practice based in Denver. Meet our four founding partners and read our brief history."
+        path="/about"
+      />
       {/* Intro */}
       <section className="container-x pt-20 pb-24 lg:pt-32 lg:pb-32">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">

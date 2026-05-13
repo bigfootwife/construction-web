@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import { X, ArrowUpRight } from "lucide-react";
 import api from "../lib/api";
+import SEO from "../components/SEO";
 
 const filters = [
   { id: "all", label: "All Work" },
@@ -25,6 +26,11 @@ export default function Portfolio() {
 
   return (
     <div data-testid="portfolio-page">
+      <SEO
+        title="Portfolio · 184 completed projects"
+        description="A curated selection from 184 completed Stonebridge projects: residential, commercial, and renovation work across Colorado, New Mexico, and Utah."
+        path="/portfolio"
+      />
       <section className="container-x pt-20 pb-16 lg:pt-32 lg:pb-20 border-b border-border">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-end">
           <div className="lg:col-span-8">

@@ -6,8 +6,10 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
   LogOut, Calendar, FileText, MessageSquare, Hammer,
-  Download, Trash2, Plus, Upload, File as FileIcon,
+  Download, Trash2, Plus, Upload, File as FileIcon, ChevronDown, ChevronRight,
 } from "lucide-react";
+import CommentsThread from "../components/CommentsThread";
+import SEO from "../components/SEO";
 
 function formatBytes(b) {
   if (!b) return "—";
@@ -161,6 +163,8 @@ export default function Dashboard() {
   };
 
   const isAdmin = user?.role === "admin";
+  const [openComments, setOpenComments] = useState({});
+  const toggleComments = (cpId) => setOpenComments((o) => ({ ...o, [cpId]: !o[cpId] }));
   const docsByProject = projects.reduce((acc, p) => {
     acc[p.cp_id] = documents.filter((d) => d.cp_id === p.cp_id);
     return acc;
@@ -168,6 +172,7 @@ export default function Dashboard() {
 
   return (
     <div className="bg-muted min-h-screen" data-testid="dashboard-page">
+      <SEO title="Client Dashboard" path="/dashboard" />
       <div className="container-x py-12 lg:py-16">
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12">
           <div>
@@ -223,24 +228,39 @@ export default function Dashboard() {
           ) : (
             <div className="divide-y divide-border">
               {projects.map((p) => (
-                <div key={p.cp_id} className="p-8 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center" data-testid={`project-${p.cp_id}`}>
-                  <div className="lg:col-span-5">
-                    <div className="overline mb-2">{p.project_type}</div>
-                    <h3 className="font-display text-xl lg:text-2xl font-medium tracking-tight">{p.title}</h3>
-                    <p className="text-sm text-muted-foreground mt-2 max-w-md">{p.notes}</p>
-                  </div>
-                  <div className="lg:col-span-4">
-                    <div className="overline mb-2 text-muted-foreground">Progress · {p.status}</div>
-                    <div className="h-2 bg-secondary">
-                      <div className="h-full bg-primary transition-all duration-700" style={{ width: `${p.progress}%` }} />
+                <div key={p.cp_id} data-testid={`project-${p.cp_id}`}>
+                  <div className="p-8 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                    <div className="lg:col-span-5">
+                      <div className="overline mb-2">{p.project_type}</div>
+                      <h3 className="font-display text-xl lg:text-2xl font-medium tracking-tight">{p.title}</h3>
+                      <p className="text-sm text-muted-foreground mt-2 max-w-md">{p.notes}</p>
                     </div>
-                    <div className="text-xs mt-2 text-muted-foreground">{p.progress}% complete</div>
+                    <div className="lg:col-span-3">
+                      <div className="overline mb-2 text-muted-foreground">Progress · {p.status}</div>
+                      <div className="h-2 bg-secondary">
+                        <div className="h-full bg-primary transition-all duration-700" style={{ width: `${p.progress}%` }} />
+                      </div>
+                      <div className="text-xs mt-2 text-muted-foreground">{p.progress}% complete</div>
+                    </div>
+                    <div className="lg:col-span-3">
+                      <div className="overline mb-2 text-muted-foreground">Next Milestone</div>
+                      <div className="text-sm font-medium">{p.next_milestone}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{p.next_milestone_date}</div>
+                    </div>
+                    <div className="lg:col-span-1 flex justify-end">
+                      <button
+                        onClick={() => toggleComments(p.cp_id)}
+                        className="text-xs font-bold uppercase tracking-[0.15em] inline-flex items-center gap-1 hover:text-primary transition-colors"
+                        data-testid={`toggle-comments-${p.cp_id}`}
+                      >
+                        {openComments[p.cp_id] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                        Talk
+                      </button>
+                    </div>
                   </div>
-                  <div className="lg:col-span-3">
-                    <div className="overline mb-2 text-muted-foreground">Next Milestone</div>
-                    <div className="text-sm font-medium">{p.next_milestone}</div>
-                    <div className="text-xs text-muted-foreground mt-1">{p.next_milestone_date}</div>
-                  </div>
+                  {openComments[p.cp_id] && (
+                    <CommentsThread cpId={p.cp_id} user={user} />
+                  )}
                 </div>
               ))}
             </div>

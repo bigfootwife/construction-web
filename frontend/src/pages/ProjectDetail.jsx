@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import api from "../lib/api";
+import SEO from "../components/SEO";
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -50,6 +51,12 @@ export default function ProjectDetail() {
 
   return (
     <div data-testid="project-detail">
+      <SEO
+        title={`${project.title} · ${project.category} · ${project.year}`}
+        description={project.description}
+        image={project.cover_image}
+        path={`/portfolio/${project.project_id}`}
+      />
       {/* Hero */}
       <section className="relative h-[60vh] lg:h-[85vh] overflow-hidden">
         <img src={project.cover_image} alt={project.title} className="absolute inset-0 w-full h-full object-cover" />
