@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { Upload, Trash2, Plus, X, Image as ImageIcon, ArrowLeft, Pencil } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useConfirm } from "../hooks/useConfirm";
 import api from "../lib/api";
 
 const CATEGORIES = ["residential", "commercial", "renovation"];
@@ -14,6 +15,7 @@ const EMPTY_FORM = {
 
 export default function Admin() {
   const { user } = useAuth();
+  const confirm = useConfirm();
   const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [inquiries, setInquiries] = useState([]);
@@ -127,7 +129,13 @@ export default function Admin() {
   };
 
   const deleteProject = async (id, title) => {
-    if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) return;
+    const ok = await confirm({
+      title: "Delete project?",
+      description: `"${title}" will be removed from the public portfolio. This cannot be undone.`,
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await api.delete(`/projects/${id}`);
       toast.success("Project deleted.");

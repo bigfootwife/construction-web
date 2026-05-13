@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useConfirm } from "../hooks/useConfirm";
 import api from "../lib/api";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -128,6 +129,7 @@ function UploadDocumentForm({ projects, onUploaded }) {
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
+  const confirm = useConfirm();
   const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [documents, setDocuments] = useState([]);
@@ -152,7 +154,13 @@ export default function Dashboard() {
   };
 
   const deleteDoc = async (doc) => {
-    if (!window.confirm(`Delete "${doc.title}"?`)) return;
+    const ok = await confirm({
+      title: "Delete document?",
+      description: `"${doc.title}" will be removed and its file made unavailable.`,
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await api.delete(`/client/documents/${doc.doc_id}`);
       toast.success("Document deleted.");

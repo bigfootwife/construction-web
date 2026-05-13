@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import "./App.css";
 import { AuthProvider } from "./context/AuthContext";
+import { ConfirmProvider } from "./hooks/useConfirm";
 import { Toaster } from "sonner";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
@@ -66,8 +67,10 @@ export default function App() {
       <HelmetProvider>
         <AuthProvider>
           <BrowserRouter>
-            <AppRouter />
-            <Toaster position="top-right" richColors />
+            <ConfirmProvider>
+              <AppRouter />
+              <Toaster position="top-right" richColors />
+            </ConfirmProvider>
           </BrowserRouter>
         </AuthProvider>
       </HelmetProvider>

@@ -1,7 +1,7 @@
 import { Helmet } from "react-helmet-async";
 
-const DEFAULT_OG_IMAGE = "https://static.prod-images.emergentagent.com/jobs/8eec06da-b90c-4d50-ad92-3f92bed59463/images/c3a46ae542227f749e6bc57f4167f7dd3efc82844fdef44f37728f887c08021d.png";
-const SITE = "Stonebridge Construction Co.";
+const DEFAULT_OG_IMAGE = process.env.REACT_APP_OG_IMAGE_URL || "";
+const SITE = process.env.REACT_APP_SITE_NAME || "Stonebridge Construction Co.";
 
 export default function SEO({ title, description, image, path = "" }) {
   const fullTitle = title ? `${title} — ${SITE}` : `${SITE} — Building, Renovation & Project Management`;

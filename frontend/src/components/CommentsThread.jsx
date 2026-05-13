@@ -1,8 +1,11 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { Send, Trash2 } from "lucide-react";
 import api from "../lib/api";
+import { useConfirm } from "../hooks/useConfirm";
+
+const POLL_INTERVAL_MS = 5000;
 
 function formatTime(iso) {
   const d = new Date(iso);
@@ -18,20 +21,29 @@ export default function CommentsThread({ cpId, user }) {
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef(null);
+  const confirm = useConfirm();
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const { data } = await api.get(`/client/comments?cp_id=${cpId}`);
-      setComments(data);
+      setComments((prev) => {
+        // Avoid re-render if nothing changed (poll quietly)
+        if (prev.length === data.length && prev.every((c, i) => c.comment_id === data[i].comment_id)) {
+          return prev;
+        }
+        return data;
+      });
     } catch {
       // silent
     }
-  };
+  }, [cpId]);
 
   useEffect(() => {
-    if (cpId) load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cpId]);
+    if (!cpId) return;
+    load();
+    const t = setInterval(load, POLL_INTERVAL_MS);
+    return () => clearInterval(t);
+  }, [cpId, load]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -56,7 +68,13 @@ export default function CommentsThread({ cpId, user }) {
   };
 
   const remove = async (id) => {
-    if (!window.confirm("Delete this comment?")) return;
+    const ok = await confirm({
+      title: "Delete comment?",
+      description: "This message will be permanently removed from the thread.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await api.delete(`/client/comments/${id}`);
       setComments((prev) => prev.filter((c) => c.comment_id !== id));
