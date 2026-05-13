@@ -35,23 +35,28 @@
 - ✅ Admin view in dashboard (recent inquiries panel).
 - ✅ 100% backend pytest coverage on critical endpoints, 95% frontend smoke pass.
 
-## Prioritized Backlog
+## Implemented (2026-02-13 — Iteration 2)
+- ✅ **Resend email notifications** on every inquiry → `davidgumaraol@gmail.com` (async, non-blocking).
+- ✅ **Emergent Object Storage** integration: admin upload endpoint, public file serve at `/api/files/{path}`.
+- ✅ **Admin Console** at `/admin` (admin-only) — create projects with cover + gallery image upload, delete projects, view all inquiries.
+- ✅ "Admin" link in header visible only to admin users.
+- ✅ 100% backend + 100% frontend pass on iter2 tests (upload auth, mime validation, size limit, project CRUD, admin gating).
 
-### P0 (next iteration)
-- Email notification on inquiry submission via **Resend** (requires `RESEND_API_KEY`).
-- Admin image upload UI for portfolio projects via **Emergent Object Storage**.
+## Prioritized Backlog
 
 ### P1
 - Rate limiting / brute-force lockout on `/api/auth/login` (5 fails = 15min lockout).
-- Switch `requests` → `httpx.AsyncClient` in `google-session` for async non-blocking.
-- Suppress public-route 401 console noise from `/api/auth/me`.
+- Stream upload body and validate size before reading entire payload into memory.
+- Edit existing portfolio projects (currently create + delete only).
+- Switch `requests` → `httpx.AsyncClient` for `google-session` and storage calls.
 - Documents/messages tab in client dashboard (currently stubbed counts).
 
 ### P2
-- Refactor `server.py` (~500 lines) into modules (`auth.py`, `projects.py`, `inquiries.py`).
+- Refactor `server.py` (~670 lines) into modules (`auth.py`, `projects.py`, `inquiries.py`, `files.py`).
 - Add `role='progressbar'` + ARIA attributes for dashboard accessibility.
 - SEO meta tags + Open Graph images per page.
 - Project detail pages (currently lightbox only).
+- Signed/expiring URLs for non-public uploads (current `/api/files/{path}` is public by design).
 
 ## Test Credentials
 See `/app/memory/test_credentials.md`.
