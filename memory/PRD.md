@@ -48,13 +48,21 @@
 - ✅ **Admin UI Edit flow**: pencil icon on each project row opens the form pre-filled; submit button reads "Save Changes"; works with re-uploaded images.
 - ✅ 9/9 iter3 pytest pass + 22/22 regression pass + 100% frontend E2E.
 
+## Implemented (2026-02-13 — Iteration 4)
+- ✅ **TTL index** on `login_attempts.failed_at` (24h auto-prune via BSON datetime).
+- ✅ **Project detail pages** at `/portfolio/:id` with editorial hero, brief, gallery, related projects, CTA. Lightbox now has "View Project" button.
+- ✅ **Documents panel** in client dashboard: admin uploads + attaches docs to specific client projects; client sees ONLY their own docs grouped per project; admin can delete. Upload now accepts PDF/DOC/DOCX/XLS/XLSX/DWG/TXT in addition to images.
+- ✅ Home featured project tiles link to `/portfolio/:id`.
+- ✅ 17/17 new pytest + 31/31 regression (48 total) + 100% frontend E2E.
+
 ## Prioritized Backlog
 
-### P1 remaining
-- Stream upload body and validate size before reading entire payload into memory.
-- Switch `requests` → `httpx.AsyncClient` for `google-session` and storage calls.
-- Documents/messages tab in client dashboard (currently stubbed counts).
-- TTL index on `login_attempts.failed_at` so the collection auto-prunes after 24h.
+### P2 remaining
+- Documents: when admin deletes a doc row, also soft-delete the underlying object-storage blob (currently orphans).
+- SEO meta tags + Open Graph per page (React Helmet).
+- Refactor `server.py` (~810 lines) into modules.
+- `requests` → `httpx.AsyncClient` migration (cosmetic, `to_thread` already non-blocking).
+- Pydantic `HttpUrl` validation for `file_url` on document create.
 
 ### P2
 - Refactor `server.py` (~670 lines) into modules (`auth.py`, `projects.py`, `inquiries.py`, `files.py`).

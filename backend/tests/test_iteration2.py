@@ -70,7 +70,7 @@ class TestUpload:
     def test_upload_rejects_non_image(self, admin_session):
         r = admin_session.post(
             f"{API}/upload",
-            files={"file": ("evil.txt", b"hello world", "text/plain")},
+            files={"file": ("evil.exe", b"MZ\x90\x00", "application/octet-stream")},
         )
         assert r.status_code == 400, r.text
 
