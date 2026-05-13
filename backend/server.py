@@ -176,6 +176,16 @@ class ProjectIn(BaseModel):
 class ProjectOut(ProjectIn):
     project_id: str
 
+class ProjectPatch(BaseModel):
+    title: Optional[str] = None
+    category: Optional[str] = None
+    location: Optional[str] = None
+    year: Optional[int] = None
+    description: Optional[str] = None
+    cover_image: Optional[str] = None
+    images: Optional[List[str]] = None
+    featured: Optional[bool] = None
+
 class ClientProjectIn(BaseModel):
     client_email: EmailStr
     title: str
@@ -212,12 +222,50 @@ async def register(payload: RegisterIn, response: Response):
     set_auth_cookie(response, token)
     return UserOut(user_id=user_id, email=email, name=payload.name, role="client")
 
+# ---------- Rate limiting (brute-force protection) ----------
+MAX_FAILED_LOGINS = 5
+LOCKOUT_MINUTES = 15
+
+async def _check_lockout(identifier: str) -> None:
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=LOCKOUT_MINUTES)
+    cutoff_iso = cutoff.isoformat()
+    recent_fails = await db.login_attempts.count_documents({
+        "identifier": identifier,
+        "failed_at": {"$gte": cutoff_iso},
+    })
+    if recent_fails >= MAX_FAILED_LOGINS:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many failed login attempts. Try again in {LOCKOUT_MINUTES} minutes.",
+        )
+
+async def _record_failed_login(identifier: str) -> None:
+    await db.login_attempts.insert_one({
+        "identifier": identifier,
+        "failed_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+async def _clear_failed_logins(identifier: str) -> None:
+    await db.login_attempts.delete_many({"identifier": identifier})
+
 @api.post("/auth/login", response_model=UserOut)
-async def login(payload: LoginIn, response: Response):
+async def login(payload: LoginIn, request: Request, response: Response):
     email = payload.email.lower().strip()
+    # Prefer real client IP from X-Forwarded-For (Kubernetes ingress); else direct .host
+    xff = request.headers.get("x-forwarded-for", "")
+    client_ip = xff.split(",")[0].strip() if xff else (request.client.host if request.client else "unknown")
+    identifier = f"{client_ip}:{email}"
+    # Also check email-only identifier so distributed brute force across IPs is still caught
+    email_identifier = f"email:{email}"
+    await _check_lockout(identifier)
+    await _check_lockout(email_identifier)
     user = await db.users.find_one({"email": email})
     if not user or not verify_password(payload.password, user.get("password_hash", "")):
+        await _record_failed_login(identifier)
+        await _record_failed_login(email_identifier)
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    await _clear_failed_logins(identifier)
+    await _clear_failed_logins(email_identifier)
     token = create_access_token(user["user_id"], user["email"], user.get("role", "client"))
     set_auth_cookie(response, token)
     return UserOut(
@@ -367,6 +415,17 @@ async def create_project(payload: ProjectIn, user: dict = Depends(require_admin)
     doc["project_id"] = pid
     await db.projects.insert_one(doc)
     doc.pop("_id", None)
+    return ProjectOut(**doc)
+
+@api.patch("/projects/{project_id}", response_model=ProjectOut)
+async def update_project(project_id: str, payload: ProjectPatch, user: dict = Depends(require_admin)):
+    updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    result = await db.projects.update_one({"project_id": project_id}, {"$set": updates})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Project not found")
+    doc = await db.projects.find_one({"project_id": project_id}, {"_id": 0})
     return ProjectOut(**doc)
 
 @api.delete("/projects/{project_id}")
@@ -613,6 +672,8 @@ async def on_startup():
     await db.client_projects.create_index("cp_id", unique=True)
     await db.files.create_index("file_id", unique=True)
     await db.files.create_index("storage_path", unique=True)
+    await db.login_attempts.create_index("identifier")
+    await db.login_attempts.create_index("failed_at")
 
     # Initialize object storage (non-fatal)
     try:

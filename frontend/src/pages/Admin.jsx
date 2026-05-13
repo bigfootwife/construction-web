@@ -2,11 +2,15 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Upload, Trash2, Plus, X, Image as ImageIcon, ArrowLeft } from "lucide-react";
+import { Upload, Trash2, Plus, X, Image as ImageIcon, ArrowLeft, Pencil } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import api from "../lib/api";
 
 const CATEGORIES = ["residential", "commercial", "renovation"];
+const EMPTY_FORM = {
+  title: "", category: "residential", location: "", year: new Date().getFullYear(),
+  description: "", cover_image: "", images: [], featured: false,
+};
 
 export default function Admin() {
   const { user } = useAuth();
@@ -14,11 +18,9 @@ export default function Admin() {
   const [projects, setProjects] = useState([]);
   const [inquiries, setInquiries] = useState([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
-    title: "", category: "residential", location: "", year: new Date().getFullYear(),
-    description: "", cover_image: "", images: [], featured: false,
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
   const fileRef = useRef(null);
   const galleryRef = useRef(null);
 
@@ -85,19 +87,43 @@ export default function Admin() {
     }
     setLoading(true);
     try {
-      await api.post("/projects", { ...form, year: Number(form.year) });
-      toast.success(`Project "${form.title}" created.`);
-      setForm({
-        title: "", category: "residential", location: "", year: new Date().getFullYear(),
-        description: "", cover_image: "", images: [], featured: false,
-      });
-      setShowForm(false);
+      const payload = { ...form, year: Number(form.year) };
+      if (editingId) {
+        await api.patch(`/projects/${editingId}`, payload);
+        toast.success(`Project "${form.title}" updated.`);
+      } else {
+        await api.post("/projects", payload);
+        toast.success(`Project "${form.title}" created.`);
+      }
+      resetForm();
       refresh();
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Could not create project.");
+      toast.error(err.response?.data?.detail || "Could not save project.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const resetForm = () => {
+    setForm(EMPTY_FORM);
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  const startEdit = (project) => {
+    setEditingId(project.project_id);
+    setForm({
+      title: project.title,
+      category: project.category,
+      location: project.location,
+      year: project.year,
+      description: project.description,
+      cover_image: project.cover_image,
+      images: project.images || [],
+      featured: project.featured,
+    });
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const deleteProject = async (id, title) => {
@@ -124,12 +150,18 @@ export default function Admin() {
             </h1>
           </div>
           <div className="flex gap-3">
+          <div className="flex gap-3">
             <button onClick={() => navigate("/dashboard")} className="btn-outline" data-testid="back-dashboard">
               <ArrowLeft size={14} /> Dashboard
             </button>
-            <button onClick={() => setShowForm((s) => !s)} className="btn-primary" data-testid="new-project-btn">
+            <button
+              onClick={() => { if (showForm) { resetForm(); } else { setShowForm(true); } }}
+              className="btn-primary"
+              data-testid="new-project-btn"
+            >
               <Plus size={14} /> {showForm ? "Cancel" : "New Project"}
             </button>
+          </div>
           </div>
         </div>
 
@@ -142,8 +174,10 @@ export default function Admin() {
             data-testid="new-project-form"
           >
             <div className="p-8 border-b border-border">
-              <div className="overline mb-2">01 / Create Portfolio Project</div>
-              <h2 className="font-display text-2xl lg:text-3xl font-medium tracking-tight">Project details</h2>
+              <div className="overline mb-2">01 / {editingId ? "Edit Project" : "Create Portfolio Project"}</div>
+              <h2 className="font-display text-2xl lg:text-3xl font-medium tracking-tight">
+                {editingId ? form.title || "Untitled" : "Project details"}
+              </h2>
             </div>
             <form onSubmit={createProject} className="p-8 space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
@@ -215,7 +249,7 @@ export default function Admin() {
               </div>
 
               <button type="submit" disabled={loading} className="btn-primary disabled:opacity-50" data-testid="form-submit">
-                {loading ? "Saving…" : "Create Project"}
+                {loading ? "Saving…" : (editingId ? "Save Changes" : "Create Project")}
               </button>
             </form>
           </motion.div>
@@ -241,18 +275,27 @@ export default function Admin() {
                 </div>
                 <div className="lg:col-span-2 text-sm uppercase tracking-widest text-muted-foreground">{p.category}</div>
                 <div className="lg:col-span-1 text-sm">{p.year}</div>
-                <div className="lg:col-span-2">
+                <div className="lg:col-span-1">
                   {p.featured ? (
                     <span className="inline-block px-2 py-1 bg-primary text-primary-foreground text-[10px] uppercase tracking-widest">Featured</span>
                   ) : (
                     <span className="text-xs text-muted-foreground">—</span>
                   )}
                 </div>
-                <div className="lg:col-span-1 text-right">
+                <div className="lg:col-span-2 text-right flex justify-end gap-2">
+                  <button
+                    onClick={() => startEdit(p)}
+                    className="w-10 h-10 border border-border hover:bg-foreground hover:text-background hover:border-foreground transition-colors inline-flex items-center justify-center"
+                    data-testid={`edit-${p.project_id}`}
+                    title="Edit project"
+                  >
+                    <Pencil size={14} />
+                  </button>
                   <button
                     onClick={() => deleteProject(p.project_id, p.title)}
                     className="w-10 h-10 border border-border hover:bg-destructive hover:text-destructive-foreground hover:border-destructive transition-colors inline-flex items-center justify-center"
                     data-testid={`delete-${p.project_id}`}
+                    title="Delete project"
                   >
                     <Trash2 size={14} />
                   </button>
