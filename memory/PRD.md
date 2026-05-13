@@ -62,14 +62,21 @@
 - ✅ **Per-project comments thread**: `comments` collection + `/api/client/comments` GET/POST/DELETE with admin + client-owner access control. Collapsible "Talk" panel under each project row in the dashboard; admin replies labelled in primary color; clients can only delete their own messages; one welcome comment auto-seeded.
 - ✅ 15/15 iter5 pytest + 48 regression + 100% frontend E2E = **63/63 backend, 100% frontend**.
 
+## Implemented (2026-02-13 — Iteration 6 polish)
+- ✅ **Env-driven SEO**: `REACT_APP_OG_IMAGE_URL` + `REACT_APP_SITE_NAME` in `frontend/.env`. `SEO.jsx` reads from env; ProjectDetail still overrides og:image per project.
+- ✅ **Custom confirm dialog** (`useConfirm` hook + shadcn `AlertDialog`) — replaces all 3 `window.confirm()` calls (project delete, document delete, comment delete) with a styled modal that matches the rest of the UI.
+- ✅ **Emergent badge hidden** via global CSS rule (`#emergent-badge { display: none !important }`) so the auto-injected script can't surface it.
+- ✅ **Real-time comments via 5s polling**: `CommentsThread` polls `GET /api/client/comments` on a 5-second interval; state-equality short-circuit prevents needless re-renders. Two-browser test confirmed cross-direction propagation within 6.5s.
+- ✅ 7/7 iter6 frontend checks + 63/63 backend regression — zero functional regression.
+
 ## Prioritized Backlog
 
-### P2 remaining
-- WebSocket / polling for real-time comments (currently re-toggle to refresh).
+### P2 remaining (purely cosmetic / nice-to-have)
+- AbortController on polling fetches so in-flight requests cancel on unmount/cpId change.
+- Email notification when a new comment is posted (clients pinged on admin reply, admin pinged on client question).
+- Replace polling with Server-Sent Events for instant delivery once user base grows.
 - Pydantic `field_validator` to reject whitespace-only comment bodies post-strip.
-- Replace `window.confirm()` with custom confirm dialog for visual consistency.
-- Move `DEFAULT_OG_IMAGE` URL to env so it can swap per environment.
-- `requests` → `httpx.AsyncClient` migration (cosmetic, `to_thread` already non-blocking).
+- `requests` → `httpx.AsyncClient` migration.
 
 ### P2
 - Refactor `server.py` (~670 lines) into modules (`auth.py`, `projects.py`, `inquiries.py`, `files.py`).
