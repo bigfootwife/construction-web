@@ -163,7 +163,7 @@ export default function Home() {
                 }
                 data-testid={`home-project-${i}`}
               >
-                <Link to="/portfolio" className="group block">
+                <Link to={`/portfolio/${p.project_id}`} className="group block">
                   <div className="overflow-hidden mb-5">
                     <img
                       src={p.cover_image}

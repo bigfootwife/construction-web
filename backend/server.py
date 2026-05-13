@@ -200,6 +200,17 @@ class ClientProjectOut(ClientProjectIn):
     cp_id: str
     created_at: str
 
+class ClientDocumentIn(BaseModel):
+    cp_id: str
+    title: str
+    file_url: str
+    file_type: Optional[str] = None
+    size: Optional[int] = None
+
+class ClientDocumentOut(ClientDocumentIn):
+    doc_id: str
+    uploaded_at: str
+
 # ---------- Auth Endpoints ----------
 @api.post("/auth/register", response_model=UserOut)
 async def register(payload: RegisterIn, response: Response):
@@ -228,10 +239,9 @@ LOCKOUT_MINUTES = 15
 
 async def _check_lockout(identifier: str) -> None:
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=LOCKOUT_MINUTES)
-    cutoff_iso = cutoff.isoformat()
     recent_fails = await db.login_attempts.count_documents({
         "identifier": identifier,
-        "failed_at": {"$gte": cutoff_iso},
+        "failed_at": {"$gte": cutoff},
     })
     if recent_fails >= MAX_FAILED_LOGINS:
         raise HTTPException(
@@ -242,7 +252,7 @@ async def _check_lockout(identifier: str) -> None:
 async def _record_failed_login(identifier: str) -> None:
     await db.login_attempts.insert_one({
         "identifier": identifier,
-        "failed_at": datetime.now(timezone.utc).isoformat(),
+        "failed_at": datetime.now(timezone.utc),
     })
 
 async def _clear_failed_logins(identifier: str) -> None:
@@ -408,6 +418,13 @@ async def list_projects(category: Optional[str] = None, featured: Optional[bool]
     rows = await db.projects.find(query, {"_id": 0}).sort("year", -1).to_list(200)
     return [ProjectOut(**r) for r in rows]
 
+@api.get("/projects/{project_id}", response_model=ProjectOut)
+async def get_project(project_id: str):
+    doc = await db.projects.find_one({"project_id": project_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return ProjectOut(**doc)
+
 @api.post("/projects", response_model=ProjectOut)
 async def create_project(payload: ProjectIn, user: dict = Depends(require_admin)):
     pid = f"prj_{uuid.uuid4().hex[:12]}"
@@ -439,6 +456,13 @@ async def delete_project(project_id: str, user: dict = Depends(require_admin)):
 MIME_BY_EXT = {
     "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
     "gif": "image/gif", "webp": "image/webp",
+    "pdf": "application/pdf",
+    "doc": "application/msword",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "xls": "application/vnd.ms-excel",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "dwg": "application/acad",
+    "txt": "text/plain",
 }
 
 def init_storage() -> Optional[str]:
@@ -509,7 +533,7 @@ async def upload_file(
 ):
     ext = (file.filename or "bin").rsplit(".", 1)[-1].lower()
     if ext not in MIME_BY_EXT:
-        raise HTTPException(status_code=400, detail="Only image uploads (jpg/png/webp/gif) are accepted")
+        raise HTTPException(status_code=400, detail="Unsupported file type. Allowed: images, PDF, DOC/DOCX, XLS/XLSX, DWG, TXT.")
     content_type = MIME_BY_EXT[ext]
     data = await file.read()
     if len(data) > 8 * 1024 * 1024:
@@ -558,6 +582,44 @@ async def create_client_project(payload: ClientProjectIn, user: dict = Depends(r
     await db.client_projects.insert_one(doc)
     doc.pop("_id", None)
     return ClientProjectOut(**doc)
+
+# ---------- Client Documents ----------
+@api.get("/client/documents", response_model=List[ClientDocumentOut])
+async def list_documents(cp_id: Optional[str] = None, user: dict = Depends(get_current_user)):
+    query: dict = {}
+    if cp_id:
+        query["cp_id"] = cp_id
+    if user.get("role") != "admin":
+        # Restrict to documents belonging to the client's own projects
+        my_cps = await db.client_projects.find(
+            {"client_email": user["email"]}, {"_id": 0, "cp_id": 1}
+        ).to_list(500)
+        allowed = [cp["cp_id"] for cp in my_cps]
+        if cp_id and cp_id not in allowed:
+            raise HTTPException(status_code=403, detail="Not your project")
+        query["cp_id"] = {"$in": allowed} if not cp_id else cp_id
+    rows = await db.client_documents.find(query, {"_id": 0}).sort("uploaded_at", -1).to_list(500)
+    return [ClientDocumentOut(**r) for r in rows]
+
+@api.post("/client/documents", response_model=ClientDocumentOut)
+async def create_document(payload: ClientDocumentIn, user: dict = Depends(require_admin)):
+    cp = await db.client_projects.find_one({"cp_id": payload.cp_id}, {"_id": 0})
+    if not cp:
+        raise HTTPException(status_code=404, detail="Client project not found")
+    doc_id = f"doc_{uuid.uuid4().hex[:12]}"
+    doc = payload.model_dump()
+    doc["doc_id"] = doc_id
+    doc["uploaded_at"] = datetime.now(timezone.utc).isoformat()
+    await db.client_documents.insert_one(doc)
+    doc.pop("_id", None)
+    return ClientDocumentOut(**doc)
+
+@api.delete("/client/documents/{doc_id}")
+async def delete_document(doc_id: str, user: dict = Depends(require_admin)):
+    result = await db.client_documents.delete_one({"doc_id": doc_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {"ok": True, "deleted": doc_id}
 
 @api.get("/")
 async def root():
@@ -673,7 +735,20 @@ async def on_startup():
     await db.files.create_index("file_id", unique=True)
     await db.files.create_index("storage_path", unique=True)
     await db.login_attempts.create_index("identifier")
-    await db.login_attempts.create_index("failed_at")
+    # TTL: auto-prune login_attempts older than 24h
+    try:
+        await db.login_attempts.drop_index("failed_at_1")
+    except Exception:
+        pass
+    await db.login_attempts.create_index("failed_at", expireAfterSeconds=24 * 3600)
+    await db.client_documents.create_index("doc_id", unique=True)
+    await db.client_documents.create_index("cp_id")
+
+    # Drop any pre-existing string-typed failed_at rows so the new datetime field is consistent
+    try:
+        await db.login_attempts.delete_many({"failed_at": {"$type": "string"}})
+    except Exception:
+        pass
 
     # Initialize object storage (non-fatal)
     try:
@@ -729,6 +804,31 @@ async def on_startup():
                 "created_at": datetime.now(timezone.utc).isoformat(),
             })
         await db.client_projects.insert_many(cps)
+
+    # Seed sample documents for the test client's projects
+    if await db.client_documents.count_documents({}) == 0:
+        test_cps = await db.client_projects.find(
+            {"client_email": TEST_CLIENT_EMAIL}, {"_id": 0}
+        ).to_list(10)
+        sample_docs = [
+            {"title": "Construction Agreement (signed)", "file_type": "application/pdf"},
+            {"title": "Schematic Drawings — Rev C", "file_type": "application/pdf"},
+            {"title": "Material Schedule — Q1 2026", "file_type": "application/vnd.ms-excel"},
+        ]
+        docs_to_insert = []
+        for cp in test_cps:
+            for sd in sample_docs[:2]:
+                docs_to_insert.append({
+                    "doc_id": f"doc_{uuid.uuid4().hex[:12]}",
+                    "cp_id": cp["cp_id"],
+                    "title": sd["title"],
+                    "file_url": "https://www.africau.edu/images/default/sample.pdf",
+                    "file_type": sd["file_type"],
+                    "size": 245312,
+                    "uploaded_at": datetime.now(timezone.utc).isoformat(),
+                })
+        if docs_to_insert:
+            await db.client_documents.insert_many(docs_to_insert)
 
 @app.on_event("shutdown")
 async def on_shutdown():

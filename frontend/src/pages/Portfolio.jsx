@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { X, ArrowUpRight } from "lucide-react";
 import api from "../lib/api";
 
 const filters = [
@@ -126,6 +127,13 @@ export default function Portfolio() {
                   <p className="mb-8">{active.location}</p>
                   <p className="overline mb-2 text-muted-foreground">Brief</p>
                   <p className="text-base text-muted-foreground leading-relaxed">{active.description}</p>
+                  <Link
+                    to={`/portfolio/${active.project_id}`}
+                    className="btn-primary mt-10"
+                    data-testid="lightbox-view-detail"
+                  >
+                    View Project <ArrowUpRight size={14} />
+                  </Link>
                 </div>
               </div>
             </div>
