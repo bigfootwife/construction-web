@@ -42,14 +42,19 @@
 - ✅ "Admin" link in header visible only to admin users.
 - ✅ 100% backend + 100% frontend pass on iter2 tests (upload auth, mime validation, size limit, project CRUD, admin gating).
 
+## Implemented (2026-02-13 — Iteration 3)
+- ✅ **Login rate limiting**: 5 failed attempts within 15 min → 429 lockout. Dual-identifier (IP+email AND email-only) so the email-only fallback catches distributed attacks even when Kubernetes ingress varies proxy IPs.
+- ✅ **Project edit (PATCH /api/projects/{id})**: admin-only partial update endpoint with proper 400/403/404 handling.
+- ✅ **Admin UI Edit flow**: pencil icon on each project row opens the form pre-filled; submit button reads "Save Changes"; works with re-uploaded images.
+- ✅ 9/9 iter3 pytest pass + 22/22 regression pass + 100% frontend E2E.
+
 ## Prioritized Backlog
 
-### P1
-- Rate limiting / brute-force lockout on `/api/auth/login` (5 fails = 15min lockout).
+### P1 remaining
 - Stream upload body and validate size before reading entire payload into memory.
-- Edit existing portfolio projects (currently create + delete only).
 - Switch `requests` → `httpx.AsyncClient` for `google-session` and storage calls.
 - Documents/messages tab in client dashboard (currently stubbed counts).
+- TTL index on `login_attempts.failed_at` so the collection auto-prunes after 24h.
 
 ### P2
 - Refactor `server.py` (~670 lines) into modules (`auth.py`, `projects.py`, `inquiries.py`, `files.py`).
