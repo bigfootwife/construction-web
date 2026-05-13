@@ -55,14 +55,21 @@
 - ✅ Home featured project tiles link to `/portfolio/:id`.
 - ✅ 17/17 new pytest + 31/31 regression (48 total) + 100% frontend E2E.
 
+## Implemented (2026-02-13 — Iteration 5)
+- ✅ **Backend refactor**: split monolithic `server.py` into `/app/backend/app/` modules (`config`, `db`, `models`, `security`, `mailer`, `storage`, `seed`, plus 5 routers). `server.py` is now a thin entry. Zero behavior change — 48/48 regression tests pass.
+- ✅ **Soft-delete blob on doc delete**: deleting a client document now also marks the underlying object-storage file row `is_deleted=true` (and `deleted_at`), so `GET /api/files/{path}` returns 404. No more orphaned blobs.
+- ✅ **SEO + Open Graph** via `react-helmet-async` on Home, Services, Portfolio, About, Contact, ProjectDetail, Dashboard. Each page emits unique `<title>`, `og:title`, `og:description`, `og:image`, `canonical`. ProjectDetail uses cover image for OG.
+- ✅ **Per-project comments thread**: `comments` collection + `/api/client/comments` GET/POST/DELETE with admin + client-owner access control. Collapsible "Talk" panel under each project row in the dashboard; admin replies labelled in primary color; clients can only delete their own messages; one welcome comment auto-seeded.
+- ✅ 15/15 iter5 pytest + 48 regression + 100% frontend E2E = **63/63 backend, 100% frontend**.
+
 ## Prioritized Backlog
 
 ### P2 remaining
-- Documents: when admin deletes a doc row, also soft-delete the underlying object-storage blob (currently orphans).
-- SEO meta tags + Open Graph per page (React Helmet).
-- Refactor `server.py` (~810 lines) into modules.
+- WebSocket / polling for real-time comments (currently re-toggle to refresh).
+- Pydantic `field_validator` to reject whitespace-only comment bodies post-strip.
+- Replace `window.confirm()` with custom confirm dialog for visual consistency.
+- Move `DEFAULT_OG_IMAGE` URL to env so it can swap per environment.
 - `requests` → `httpx.AsyncClient` migration (cosmetic, `to_thread` already non-blocking).
-- Pydantic `HttpUrl` validation for `file_url` on document create.
 
 ### P2
 - Refactor `server.py` (~670 lines) into modules (`auth.py`, `projects.py`, `inquiries.py`, `files.py`).
