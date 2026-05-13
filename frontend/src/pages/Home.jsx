@@ -85,10 +85,10 @@ export default function Home() {
       {/* MARQUEE */}
       <section className="border-y border-border py-8 overflow-hidden bg-secondary/40">
         <div className="flex whitespace-nowrap marquee-track">
-          {Array.from({ length: 2 }).map((_, gi) => (
-            <div key={gi} className="flex items-center gap-12 px-6">
+          {["track-a", "track-b"].map((trackId) => (
+            <div key={trackId} className="flex items-center gap-12 px-6">
               {["Residential", "Commercial", "Renovation", "Historic", "Mixed-use", "Adaptive Reuse", "Hospitality"].map((w) => (
-                <span key={w + gi} className="font-display italic text-3xl lg:text-5xl text-foreground/40">
+                <span key={`${trackId}-${w}`} className="font-display italic text-3xl lg:text-5xl text-foreground/40">
                   — {w}
                 </span>
               ))}

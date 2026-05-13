@@ -3,18 +3,10 @@ import axios from "axios";
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
 
+// httpOnly cookies are the only auth transport. No localStorage tokens.
 const api = axios.create({
   baseURL: API,
   withCredentials: true,
-});
-
-// Bearer fallback for cross-origin cookie issues
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("auth_token");
-  if (token && !config.headers.Authorization) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
 });
 
 export default api;

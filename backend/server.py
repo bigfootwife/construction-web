@@ -26,8 +26,8 @@ JWT_SECRET = os.environ["JWT_SECRET"]
 JWT_ALG = "HS256"
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@stonebridge.com")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Admin@1234")
-TEST_CLIENT_EMAIL = "client@stonebridge.com"
-TEST_CLIENT_PASSWORD = "Client@1234"
+TEST_CLIENT_EMAIL = os.environ.get("TEST_CLIENT_EMAIL", "client@stonebridge.com")
+TEST_CLIENT_PASSWORD = os.environ.get("TEST_CLIENT_PASSWORD", "Client@1234")
 
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev")

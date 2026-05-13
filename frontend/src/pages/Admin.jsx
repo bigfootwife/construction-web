@@ -199,7 +199,7 @@ export default function Admin() {
                 <label className="overline mb-4 block">Gallery images (optional)</label>
                 <div className="flex flex-wrap gap-3">
                   {form.images.map((img, i) => (
-                    <div key={i} className="relative">
+                    <div key={img} className="relative">
                       <img src={img} alt="" className="w-24 h-24 object-cover border border-border" />
                       <button type="button" onClick={() => removeGalleryImg(i)} className="absolute -top-2 -right-2 w-6 h-6 bg-foreground text-background flex items-center justify-center">
                         <X size={12} />

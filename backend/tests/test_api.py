@@ -33,7 +33,7 @@ class TestProjects:
         assert r.status_code == 200
         data = r.json()
         assert len(data) >= 1
-        assert all(p["featured"] is True for p in data)
+        assert all(p["featured"] for p in data)
 
 
 # ----- Inquiries (public POST, admin GET) -----
