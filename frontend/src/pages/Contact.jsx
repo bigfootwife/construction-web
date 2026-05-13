@@ -2,7 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { ArrowRight, Check } from "lucide-react";
 import { motion } from "framer-motion";
-import api from "../lib/api";
+import { submitInquiry, STATIC_MODE, STUDIO_EMAIL } from "../lib/dataLayer";
 import SEO from "../components/SEO";
 
 const PROJECT_TYPES = ["New Construction", "Residential Renovation", "Commercial Build-out", "Project Management", "Other"];
@@ -21,9 +21,13 @@ export default function Contact() {
     e.preventDefault();
     setLoading(true);
     try {
-      await api.post("/inquiries", form);
+      const result = await submitInquiry(form);
       setSubmitted(true);
-      toast.success("Inquiry received. We'll be in touch within 2 business days.");
+      if (result.mode === "mailto") {
+        toast.success("Opening your email app… please send the pre-filled message to complete your inquiry.");
+      } else {
+        toast.success("Inquiry received. We'll be in touch within 2 business days.");
+      }
     } catch (err) {
       const detail = err.response?.data?.detail;
       const msg = typeof detail === "string" ? detail : "Could not send inquiry. Try again.";
@@ -141,8 +145,13 @@ export default function Contact() {
                 </div>
 
                 <button type="submit" disabled={loading} className="btn-primary disabled:opacity-50" data-testid="contact-submit">
-                  {loading ? "Sending…" : "Send Inquiry"} <ArrowRight size={14} />
+                  {loading ? "Sending…" : (STATIC_MODE ? "Open Email Client" : "Send Inquiry")} <ArrowRight size={14} />
                 </button>
+                {STATIC_MODE && (
+                  <p className="text-xs text-muted-foreground mt-3">
+                    This will open your default email app pre-filled with your message. Send it from there to reach us at <a href={`mailto:${STUDIO_EMAIL}`} className="text-foreground border-b border-foreground/40">{STUDIO_EMAIL}</a>.
+                  </p>
+                )}
               </form>
             )}
           </motion.div>
@@ -155,7 +164,7 @@ export default function Contact() {
             </div>
             <div>
               <div className="overline mb-4">Direct</div>
-              <p className="text-base"><a href="mailto:hello@stonebridge.com" className="hover:text-primary">hello@stonebridge.com</a></p>
+              <p className="text-base"><a href={`mailto:${STUDIO_EMAIL}`} className="hover:text-primary">{STUDIO_EMAIL}</a></p>
               <p className="text-base mt-1">(303) 555-0182</p>
             </div>
             <div>

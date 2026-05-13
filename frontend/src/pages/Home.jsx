@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowUpRight, ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
-import api from "../lib/api";
+import { listProjects } from "../lib/dataLayer";
 import SEO from "../components/SEO";
 
 const stats = [
@@ -34,7 +34,7 @@ export default function Home() {
   const [featured, setFeatured] = useState([]);
 
   useEffect(() => {
-    api.get("/projects?featured=true").then(({ data }) => setFeatured(data)).catch(() => {});
+    listProjects({ featured: true }).then(setFeatured).catch(() => {});
   }, []);
 
   return (

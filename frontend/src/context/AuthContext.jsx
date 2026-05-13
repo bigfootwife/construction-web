@@ -1,13 +1,15 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import api from "../lib/api";
+import { STATIC_MODE } from "../lib/dataLayer";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!STATIC_MODE);
 
   const checkAuth = useCallback(async () => {
+    if (STATIC_MODE) return;
     try {
       const { data } = await api.get("/auth/me");
       setUser(data);
@@ -19,6 +21,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    if (STATIC_MODE) return;
     // Skip /me check if returning from OAuth callback
     if (window.location.hash?.includes("session_id=")) {
       setLoading(false);

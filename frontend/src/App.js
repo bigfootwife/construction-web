@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, HashRouter, Routes, Route, useLocation } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import "./App.css";
 import { AuthProvider } from "./context/AuthContext";
@@ -18,11 +18,14 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
 import AuthCallback from "./pages/AuthCallback";
+import { STATIC_MODE } from "./lib/dataLayer";
+
+const Router = STATIC_MODE ? HashRouter : BrowserRouter;
 
 function AppRouter() {
   const location = useLocation();
-  // Handle Emergent OAuth callback synchronously
-  if (location.hash?.includes("session_id=")) {
+  // Handle Emergent OAuth callback synchronously (only when backend is on)
+  if (!STATIC_MODE && location.hash?.includes("session_id=")) {
     return <AuthCallback />;
   }
   return (
@@ -36,24 +39,28 @@ function AppRouter() {
           <Route path="/portfolio/:id" element={<ProjectDetail />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute>
-                <Admin />
-              </ProtectedRoute>
-            }
-          />
+          {!STATIC_MODE && <Route path="/login" element={<Login />} />}
+          {!STATIC_MODE && <Route path="/register" element={<Register />} />}
+          {!STATIC_MODE && (
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+          )}
+          {!STATIC_MODE && (
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <Admin />
+                </ProtectedRoute>
+              }
+            />
+          )}
         </Routes>
       </main>
       <Footer />
@@ -66,12 +73,12 @@ export default function App() {
     <div className="App">
       <HelmetProvider>
         <AuthProvider>
-          <BrowserRouter>
+          <Router>
             <ConfirmProvider>
               <AppRouter />
               <Toaster position="top-right" richColors />
             </ConfirmProvider>
-          </BrowserRouter>
+          </Router>
         </AuthProvider>
       </HelmetProvider>
     </div>

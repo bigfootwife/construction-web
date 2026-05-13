@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
-import api from "../lib/api";
+import { listProjects, getProject } from "../lib/dataLayer";
 import SEO from "../components/SEO";
 
 export default function ProjectDetail() {
@@ -17,22 +17,21 @@ export default function ProjectDetail() {
     let active = true;
     setLoading(true);
     setNotFound(false);
-    api
-      .get(`/projects/${id}`)
-      .then(({ data }) => {
+    (async () => {
+      try {
+        const proj = await getProject(id);
         if (!active) return;
-        setProject(data);
-        return api.get(`/projects?category=${data.category}`);
-      })
-      .then((res) => {
-        if (!active || !res) return;
-        setRelated(res.data.filter((p) => p.project_id !== id).slice(0, 3));
-      })
-      .catch((err) => {
+        if (!proj) { setNotFound(true); return; }
+        setProject(proj);
+        const more = await listProjects({ category: proj.category });
         if (!active) return;
-        if (err.response?.status === 404) setNotFound(true);
-      })
-      .finally(() => active && setLoading(false));
+        setRelated(more.filter((p) => p.project_id !== id).slice(0, 3));
+      } catch {
+        if (active) setNotFound(true);
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
     return () => { active = false; };
   }, [id]);
 

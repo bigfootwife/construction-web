@@ -349,14 +349,3 @@ export default function Dashboard() {
     </div>
   );
 }
-ine text-primary">{iq.status}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import { X, ArrowUpRight } from "lucide-react";
-import api from "../lib/api";
+import { listProjects } from "../lib/dataLayer";
 import SEO from "../components/SEO";
 
 const filters = [
@@ -18,9 +18,8 @@ export default function Portfolio() {
   const [active, setActive] = useState(null);
 
   useEffect(() => {
-    api
-      .get(`/projects${filter !== "all" ? `?category=${filter}` : ""}`)
-      .then(({ data }) => setProjects(data))
+    listProjects({ category: filter !== "all" ? filter : undefined })
+      .then(setProjects)
       .catch(() => setProjects([]));
   }, [filter]);
 

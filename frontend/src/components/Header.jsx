@@ -2,6 +2,7 @@ import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
+import { STATIC_MODE } from "../lib/dataLayer";
 
 const links = [
   { to: "/", label: "Home" },
@@ -50,12 +51,16 @@ export default function Header() {
         </nav>
 
         <div className="hidden lg:flex items-center gap-4">
-          {user?.role === "admin" && (
+          {!STATIC_MODE && user?.role === "admin" && (
             <Link to="/admin" data-testid="admin-link" className="text-xs font-semibold uppercase tracking-[0.18em] text-primary hover:opacity-70">
               Admin
             </Link>
           )}
-          {user ? (
+          {STATIC_MODE ? (
+            <Link to="/contact" data-testid="header-cta" className="btn-outline">
+              Start a Project
+            </Link>
+          ) : user ? (
             <Link to="/dashboard" data-testid="dashboard-link" className="btn-outline">
               Dashboard
             </Link>
@@ -90,12 +95,12 @@ export default function Header() {
               </NavLink>
             ))}
             <Link
-              to={user ? "/dashboard" : "/login"}
+              to={STATIC_MODE ? "/contact" : (user ? "/dashboard" : "/login")}
               onClick={() => setOpen(false)}
               className="btn-outline self-start"
               data-testid="mobile-dashboard-link"
             >
-              {user ? "Dashboard" : "Client Login"}
+              {STATIC_MODE ? "Start a Project" : (user ? "Dashboard" : "Client Login")}
             </Link>
           </div>
         </div>
