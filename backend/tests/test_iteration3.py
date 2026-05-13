@@ -163,7 +163,7 @@ class TestProjectPatch:
         # provided fields updated
         assert body["title"] == new_title
         assert body["description"] == "Updated description"
-        assert body["featured"] is True
+        assert body["featured"] == True
         # untouched fields preserved
         assert body["cover_image"] == original_cover
         assert body["category"] == created_project["category"]
@@ -175,7 +175,7 @@ class TestProjectPatch:
         lst = requests.get(f"{API}/projects").json()
         match = [p for p in lst if p["project_id"] == pid]
         assert match and match[0]["title"] == new_title
-        assert match[0]["featured"] is True
+        assert match[0]["featured"] == True
 
     def test_patch_forbidden_for_client(self, client_session, created_project):
         pid = created_project["project_id"]

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useConfirm } from "../hooks/useConfirm";
@@ -135,18 +135,17 @@ export default function Dashboard() {
   const [documents, setDocuments] = useState([]);
   const [inquiries, setInquiries] = useState([]);
 
-  const refresh = () => {
+  const refresh = useCallback(() => {
     api.get("/client/projects").then(({ data }) => setProjects(data)).catch(() => {});
     api.get("/client/documents").then(({ data }) => setDocuments(data)).catch(() => {});
     if (user?.role === "admin") {
       api.get("/inquiries").then(({ data }) => setInquiries(data)).catch(() => {});
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [refresh]);
 
   const onLogout = async () => {
     await logout();
@@ -312,7 +311,7 @@ export default function Dashboard() {
                 );
               })}
               {/* Orphan docs (no matching project in current scope) */}
-              {documents.filter((d) => !projects.some((p) => p.cp_id === d.cp_id)).map((doc) => (
+              {orphanDocs.map((doc) => (
                 <DocumentRow key={doc.doc_id} doc={doc} isAdmin={isAdmin} onDelete={deleteDoc} />
               ))}
             </div>
@@ -340,6 +339,17 @@ export default function Dashboard() {
                     <div className="lg:col-span-2 text-sm">{iq.budget}</div>
                     <div className="lg:col-span-4 text-sm text-muted-foreground line-clamp-2">{iq.message}</div>
                     <div className="lg:col-span-1 overline text-primary">{iq.status}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+ine text-primary">{iq.status}</div>
                   </div>
                 ))}
               </div>

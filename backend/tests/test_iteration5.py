@@ -236,7 +236,7 @@ class TestDocDeleteSoftDeletesBlob:
             path = file_url.split("/api/files/", 1)[1]
             f = _mongo().files.find_one({"storage_path": path})
             assert f is not None, "file row should still exist"
-            assert f.get("is_deleted") is True
+            assert f.get("is_deleted") == True
             assert f.get("deleted_at")
 
         # 5. GET /api/files/<path> now 404

@@ -23,9 +23,9 @@ export default function CommentsThread({ cpId, user }) {
   const scrollRef = useRef(null);
   const confirm = useConfirm();
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal) => {
     try {
-      const { data } = await api.get(`/client/comments?cp_id=${cpId}`);
+      const { data } = await api.get(`/client/comments?cp_id=${cpId}`, { signal });
       setComments((prev) => {
         // Avoid re-render if nothing changed (poll quietly)
         if (prev.length === data.length && prev.every((c, i) => c.comment_id === data[i].comment_id)) {
@@ -33,16 +33,25 @@ export default function CommentsThread({ cpId, user }) {
         }
         return data;
       });
-    } catch {
-      // silent
+    } catch (err) {
+      if (err?.name === "CanceledError" || err?.code === "ERR_CANCELED") return;
+      console.warn("Comments poll failed:", err?.response?.status || err?.message);
     }
   }, [cpId]);
 
   useEffect(() => {
     if (!cpId) return;
-    load();
-    const t = setInterval(load, POLL_INTERVAL_MS);
-    return () => clearInterval(t);
+    const controller = new AbortController();
+    load(controller.signal);
+    const t = setInterval(() => {
+      const c = new AbortController();
+      controller.signal.addEventListener("abort", () => c.abort());
+      load(c.signal);
+    }, POLL_INTERVAL_MS);
+    return () => {
+      clearInterval(t);
+      controller.abort();
+    };
   }, [cpId, load]);
 
   useEffect(() => {
