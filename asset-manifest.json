@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/construction-web/static/css/main.cee2f4f9.css",
+    "main.js": "/construction-web/static/js/main.5a87a0b9.js",
+    "index.html": "/construction-web/index.html",
+    "main.cee2f4f9.css.map": "/construction-web/static/css/main.cee2f4f9.css.map",
+    "main.5a87a0b9.js.map": "/construction-web/static/js/main.5a87a0b9.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.cee2f4f9.css",
+    "static/js/main.5a87a0b9.js"
+  ]
+}
